@@ -1,5 +1,5 @@
 {
-  "name": "tiny-revue",
+  "name": "@salwebs/tiny-revue",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,6 +13,23 @@
     "vite": "^4.3.9"
   },
   "dependencies": {
+    "lodash": "^4.17.21",
     "nanoid": "^4.0.2"
-  }
+  },
+  "description": "Simple Reactive Framework ",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/capodisseny/revue.git"
+  },
+  "keywords": [
+    "vue",
+    "reactive"
+  ],
+  "author": "salwebs.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/capodisseny/revue/issues"
+  },
+  "homepage": "https://github.com/capodisseny/revue#readme"
 }

@@ -12,9 +12,12 @@ let addProp = (obj, prop, watcher, )=>{
     if(prop == "constructor") return
     if(prop == "__proto__") return
 
+    if(typeof obj[prop]  == "function") return 
+    if(typeof obj[prop]  == "Symbol") return
     let watchers = obj.__watching[prop]  = obj.__watching[prop]  || []
    
-    if(!watchers.includes)debugger
+    if(!watchers?.includes)debugger
+
 
     if(!watchers.includes(watcher)) watchers.push(watcher)
 
@@ -22,7 +25,66 @@ let addProp = (obj, prop, watcher, )=>{
 
 
 let updating = []
+
+let updateQueue = []
 let updatingNodes = false
+
+class UpdateQueue{
+
+    static queue = new Map()
+    static push(target, prop, callback, args){
+
+
+        if(!this.queue.has(callback)) this.queue.set(callback, args)
+
+        setTimeout(()=>{
+         if(!this.running) this.run()
+        })
+    }
+    static run(){
+
+        this.running = true
+
+        setTimeout(()=>{
+ 
+            let callbacksRan = []
+            let targetsRan = []
+
+            let n = 0
+            for (const [callback, args] of this.queue.entries()) {
+
+      
+
+                //avoid repeting callback
+                if(callbacksRan.includes(callback)) return 
+                callbacksRan.push(callback)
+
+    
+
+                if(callback instanceof WatchEffect) callback.call() 
+
+                if(typeof callback == "function"){
+                    callback(args)
+                }
+              }
+   
+        
+            this.running = false
+
+        })
+      
+ 
+      
+    }
+    static includes(callback){
+        return this.queue.includes(callback)
+    }
+       
+
+}
+
+
+
 let reactive = (obj, callback , skip)=>{
 
     if(typeof obj !== "object" || !obj) return obj
@@ -46,6 +108,7 @@ let reactive = (obj, callback , skip)=>{
                 //inside a watch effect return add to watchers
                 // if(prop == "count")debugger
 
+       
                 if(WatchEffect.current ) addProp(target, prop, WatchEffect.current, )
                 if(callback ) addProp(target, prop, callback, )
 
@@ -65,28 +128,37 @@ let reactive = (obj, callback , skip)=>{
                 
                 let newValue = target[prop] = value
 
+
                 if(obj.__watching){
-                  
+
+
+                    
+                   
                     obj.__watching[prop]?.forEach(callback=>{
+                       
+                          UpdateQueue.push(target, prop, callback,{oldValue, newValue, prop, target} )
 
-                        if( updating.includes(callback))  return
+                        // if( updating.includes(callback))  return
                       
-                        updating.push(callback)
-                        setTimeout(()=>{
-                            if(callback instanceof WatchEffect) callback.call() 
+                        // updating.push(callback)
 
-                            if(typeof callback == "function"){
-                                callback({oldValue, newValue, prop, target})
-                            }
-                        })
-                     
+
+                        // setTimeout(()=>{
+                        //     if(callback instanceof WatchEffect) callback.call() 
+
+                        //     if(typeof callback == "function"){
+                        //         callback({oldValue, newValue, prop, target})
+                        //     }
+                        // })
 
                         if(callback.runs > 100) debugger
-                        callback.runs =  callback.runs++ 
+                        callback.runs =  callback.runs?callback.runs++:1 
                         
                        
                     })
 
+             
+       
 
                     setTimeout(()=>{
                         updating.length = 0

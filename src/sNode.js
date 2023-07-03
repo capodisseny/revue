@@ -7,10 +7,7 @@ import reactive from "./reactive"
 
 let emptySlot = ()=>null
 
-function renderComponent (comp){
 
-
-}
 
 
 /**Listeners 
@@ -63,9 +60,10 @@ function render(updateObj, parentEl, context){
         }
     }
 
+    let id =  "sal_"+nanoid(4) 
     //on functions and comonents
-    updateObj.index =   "sal_"+nanoid(14) 
-    updateObj.id =   "sal_"+nanoid(14) 
+    updateObj.index = id
+    updateObj.id =  id
 
     node = sNode.create(updateObj, context, {index:0})
 
@@ -86,8 +84,22 @@ function render(updateObj, parentEl, context){
 
 
 }
+let shouldRender = (obj)=>{
+    if(!obj && obj !== 0) return
+
+    return true
+}
+let isTextNode = (val)=>{
+
+    if(typeof val !== "object") return true
+
+    if(!val?.index) return true
+    if(!val?.type) return true
+
+    return false
 
 
+}
 class sNode{
 
     el = false
@@ -110,13 +122,33 @@ class sNode{
 
         let { parent, pastObj, node, index  } = params
 
+       
+        //skip process 
+        // if(shouldRender(updateObj)) return;
+
+
         if(!index && index !== 0)debugger
         // if(!parent?.index)debugger
         //  updateObj.id = `${parent?.index}_compI${updateObj.index }_childI${index}`
 
-        updateObj.id = "_"+parent?.id  + updateObj?.key + updateObj.id
-         node = this.nodes[updateObj.id]
+        if(! updateObj?.id)debugger
 
+
+
+        let id = `_${updateObj.id}`
+      
+        if(updateObj?.key) id = id + `_key:${updateObj?.key}`
+        if(parent?.id ) id =  id +  `_${parent.id}` 
+
+
+        params.id = id
+
+         node = this.nodes[id]
+
+
+       
+
+        //  if(updateObj.index == "_10")debugger
    
         //check if need to create or update
         if(node ) {
@@ -128,15 +160,18 @@ class sNode{
     
  
             let payload = {updateObj, pastObj}
-            // console.log("PATCHING:", node)
+            //  console.log("PATCHING:", updateObj, node)
           
             return node
         }
         else {
 
-            // console.log("creating...",updateObj)
-       
+          
+          
+
             node = new sNode(updateObj,renderCtx, params)
+
+             console.log("creating...",node, updateObj,node.id, updateObj?.id, id)
     
         }
 
@@ -149,11 +184,13 @@ class sNode{
         return node
 
     }
-    constructor(updateObj, renderCtx , internalContext = {parent}){
+    constructor(updateObj, renderCtx , internalContext ){
+        let {id, parent} =internalContext
 
+        if(!id)debugger
         this.index = updateObj.index
-        //internal id 
-        this.id = updateObj.id
+        //internal id  //do not set id to the updateObj
+        this.id = id
         // this.id =  updateObj.id || "sal_"+nanoid(14)
         // this.id =  updateObj.id || "sal_"+nanoid(14)
         //for manipulating dom
@@ -270,6 +307,10 @@ class sNode{
 
         this.updateObj = updateObj
 
+
+
+        if(!updateObj)debugger
+        
        
         //render function or component
         if(this.render){        
@@ -285,6 +326,16 @@ class sNode{
 
                 // if(this.type.name == "Button") debugger
                  updateObj = this.render(context)
+
+
+
+    
+
+                //skip update process
+                if(!shouldRender(updateObj)) {
+                    if(this.el) this.el.remove()
+                    return
+                }
 
                  //Assign same context to this.context, so can have acces to props and attrs from setup function
                 //  Object.assign(this.context, context)
@@ -303,7 +354,7 @@ class sNode{
                     //  this.parent.addChild(this.root.el,0)
                   }
 
-                 this.pastObj = updateObj
+                 this.pastObj = this.updateObj
 
                  return
             }
@@ -431,7 +482,7 @@ class sNode{
 
         if(! this.el  && this.id)  {
 
-            this.el  = doc.querySelector(`[${this.id}]`)
+            // this.el  = doc.querySelector(`[${this.uuid}]`)
         }
 
 
@@ -462,6 +513,8 @@ class sNode{
 
         let {updateObj , pastObj} = params
 
+
+        
         let comp  = updateObj?.type
         let attrs =  updateObj?.attrs
     
@@ -544,18 +597,21 @@ class sNode{
         if(el && el.setAttribute){
         
             el.setAttribute(this.uuid, "" )  
+            
+            
+            el.setAttribute("_"+this.index, "" )  
+            el.setAttribute("data-id" , this.id )  
+            el.setAttribute("data-key", this.updateObj?.key )  
 
         }
     
     }
 
 
-    shouldRenderChild(child){
+    shouldRender(obj){
+        return shouldRender(obj)
 
-        if(!child && child !== 0) return
-
-
-        return true
+       
 
     }
     updateChildren(params){
@@ -601,20 +657,26 @@ class sNode{
 
 
         //render children
+        let rendered =[]
         if(children){
             //define the index manually so nested children can keep the pastObj
-            let i = 0
+    
         
             if(!children.map) debugger
         
-          
-            children.forEach(( child , i )=>this.renderChild({child, i, children, pastObj}))
+            let i= 0
+            rendered =  children.filter(( child   )=>{
+                let allowRender = this.renderChild({child, i, children, pastObj})
+                //increment only when is rendered, if not when the i does not match it updates the nodes
+                if(allowRender) i++
+                return allowRender
+            })
         
         }
 
          //remove past children
         if( this.pastObj){
-            let newLength = children?.length || 0
+            let newLength = rendered?.length || 0
             let current = this.el.childNodes.length
            
             while(current > newLength ){
@@ -633,36 +695,47 @@ class sNode{
      
      renderChild({child, i , children, removeChildren}){
     
-        //if is a function check
-        if(child == this.pastObj?.children?.[i]) {
 
+        if(!this.shouldRender(child)) return  
+        //if is a function check
+        if(child === this.pastObj?.children?.[i]) {
+
+         
             if(typeof child == "function" )debugger
-            return
+    
+            return true
         }
       
-        
-        if(!this.shouldRenderChild(child)) return 
+     
+    
 
         let childNode = child
       
         // if(child?.type?.name == "Button") debugger
         //filter the node
 
-        if(typeof child !== "object"){
+        if(isTextNode(child) ){
 
             if(this.el.childNodes[i] instanceof Text){
                 this.el.childNodes[i].textContent = child
-                return
+                return true
             }
+            // if(!child) debugger
+          
+            try{
+                this.el.insertBefore(document.createTextNode(child), this.el.childNodes[i] ?? null)
+            }catch(err){
+                debugger
+            }
+           
 
-            this.el.insertBefore(document.createTextNode(child), this.el.childNodes[i])
-
-            return 
+            return true
         }
 
         if(typeof child == "object"){
              childNode =  sNode.create(child, {   }, {parent:this, index:i})
         }
+
 
 
         
@@ -677,7 +750,7 @@ class sNode{
 
          this.addChild({childNode, i})
 
-        return childNode
+        return true
     
     
     }
@@ -700,7 +773,7 @@ class sNode{
         let el = childNode.el
         if(!el && childNode.root) debugger
         
-        if(el !== this.el.childNodes[i]){ 
+        if(el && el !== this.el.childNodes[i]){ 
 
             this.el.insertBefore(el, this.el.childNodes[i])
 
@@ -723,11 +796,11 @@ class sNode{
         let style = this.component?.template
         if(style){
             let id = "style_" + this.component.name
-                let el = document.querySelector(`#${id}`)
+                let el = document.querySelector(`#${this.component.name}`)
                 if(!el){
                     el = document.createElement("style")
                 
-                    el.id = id
+                    el.id = this.component.name
 
                     style = style.replace("<style>", "")
                     style = style.replace("</style>", "")
