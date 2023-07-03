@@ -10,8 +10,6 @@ export class  WatchEffect {
    
     // startAt = 0 // by deffault on initialitzation
     runsLeft = -1 //# of runs,  by default,  no stop, 
-
-
    
     init(){
         this.call()
@@ -35,7 +33,6 @@ export class  WatchEffect {
     }
  
 }
-
 
 
 let effect =  (callback, options)=>{

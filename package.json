@@ -1,5 +1,5 @@
 {
-  "name": "revue",
+  "name": "tiny-revue",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,6 +9,10 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@babel/core": "^7.22.5",
     "vite": "^4.3.9"
+  },
+  "dependencies": {
+    "nanoid": "^4.0.2"
   }
 }
