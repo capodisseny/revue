@@ -1,15 +1,16 @@
-import effect from "./effect"
+import effect from "./effect.js"
 import { nanoid } from 'nanoid'
-import flatten from "lodash/flatten"
-import isEqual from "lodash/isEqual"
+import flatten from "lodash/flatten.js"
+import isEqual from "lodash/isEqual.js"
 
-import reactive from "./reactive"
+import reactive from "./reactive.js"
 
 let emptySlot = ()=>null
 
 
 
-
+const svgEls = ["svg"]
+const skipSetProps = ["viewBox", "preserveAspectRatio", "x1", "x2", "y1", "y2"]
 /**Listeners 
  * https://stackoverflow.com/questions/446892/how-to-find-event-listeners-on-a-dom-node-in-javascript-or-in-debugging/6434924#6434924
  * 
@@ -39,6 +40,7 @@ Node.prototype.realRemoveEventListener = Node.prototype.removeEventListener;
 
 
 
+
 function render(updateObj, parentEl, context){
 
 
@@ -64,6 +66,7 @@ function render(updateObj, parentEl, context){
     //on functions and comonents
     updateObj.index = id
     updateObj.id =  id
+
 
     node = sNode.create(updateObj, context, {index:0})
 
@@ -93,11 +96,20 @@ let isTextNode = (val)=>{
 
     if(typeof val !== "object") return true
 
-    if(!val?.index) return true
-    if(!val?.type) return true
+    // if(!val?.index) return true
+    if(!val?.type && !val?.component) return true
 
     return false
 
+
+}
+
+let createTextNode =  (node)=>{
+    let t = typeof  node
+    if(t == "function")return node.toString()
+    if(t == "object")return JSON.stringify(node)
+
+    return node.toString()
 
 }
 class sNode{
@@ -216,7 +228,7 @@ class sNode{
     
         this.updateObj = updateObj
         this.context = parentContext
-        this.type = updateObj?.type
+        this.type = updateObj?.type || updateObj?.component
 
 
 
@@ -224,14 +236,14 @@ class sNode{
          //node object
          if(updateObj && t == "object" ){
             let reRender
-            this.type = updateObj?.type
+            this.type = updateObj?.type || updateObj?.component
 
             if(!this.type) debugger
 
 
             if(typeof this.type == "object"){
 
-                this.component = updateObj.type
+                this.component = updateObj.type || updateObj?.component
                 this.render =  this.type.render
                 this.setup =  this.type.setup
 
@@ -364,7 +376,7 @@ class sNode{
    
                 updateObj = this.render(this.context)
 
-                this.type = updateObj.type 
+                this.type = updateObj.type  || updateObj?.component
                
                 // if(updateObj?.attrs?.caca) debugger
                 
@@ -488,13 +500,20 @@ class sNode{
 
         if(! this.el  && comp)  {
 
-            this.el   = doc.createElement(comp)
+            //svg element
+            if(svgEls.includes(comp)) this.el = doc.createElementNS("http://www.w3.org/2000/svg", comp)
+            //default element
+            else this.el   = doc.createElement(comp)
+
+            if(this.el instanceof HTMLUnknownElement) this.el = doc.createElementNS("http://www.w3.org/2000/svg", comp)
         }
 
 
         //textNode
         if(! this.el  && !children/**objType == "string" || objType == "number" */){
-            this.el  = document.createTextNode(updateObj)
+
+
+            this.el  = document.createTextNode(createTextNode(updateObj))
         }
 
         //create fragment
@@ -514,8 +533,7 @@ class sNode{
         let {updateObj , pastObj} = params
 
 
-        
-        let comp  = updateObj?.type
+    
         let attrs =  updateObj?.attrs
     
         let el = this.el
@@ -574,11 +592,16 @@ class sNode{
     
                 //this sets events also
                 if(attr.slice(0,2) !== "on") {
-        
-                    el.setAttribute(attr, val)
+
+                    if( !["innerHTML"].includes(attr)) el.setAttribute(attr, val)
     
                     //when setting input values, this is also needed, probebly with other properties too
                     try{
+                      
+
+                        if(el instanceof SVGElement) return
+                        if(skipSetProps.includes(attr))return
+
                         el[attr] =  val
                     }catch(err){
                         console.log(err)
@@ -623,7 +646,7 @@ class sNode{
         // this.parseUpdateObject(updateObj)
 
 
-        let comp  = updateObj?.type
+
         let children = updateObj?.children 
   
     
@@ -723,7 +746,7 @@ class sNode{
             // if(!child) debugger
           
             try{
-                this.el.insertBefore(document.createTextNode(child), this.el.childNodes[i] ?? null)
+                this.el.insertBefore(document.createTextNode(createTextNode(child)), this.el.childNodes[i] ?? null)
             }catch(err){
                 debugger
             }
@@ -793,7 +816,7 @@ class sNode{
 
     renderComponentStyle(){
         //append style
-        let style = this.component?.template
+        let style = this.component?.template || this.component?.style
         if(style){
             let id = "style_" + this.component.name
                 let el = document.querySelector(`#${this.component.name}`)
@@ -821,8 +844,10 @@ class sNode{
         let context = {
             ...parentContext,
             // ...updateObj,
-            attrs:updateObj.attrs
+        
         } || {}
+
+        context.attrs = Object.assign({...(context.attrs || {})},( updateObj?.attrs || {}))
 
         let props = {}
         context.props = props
@@ -858,6 +883,8 @@ class sNode{
 
         let children = []
         let slotsDef = comp?.slots || []
+
+        if(!slotsDef.reduce) debugger
         let slots = {
             // default: (props)=>children.map(child=>{
             //     return render(child, null, props)
@@ -868,9 +895,7 @@ class sNode{
 
         }
 
-
         context.slots = slots
-
 
         // context.children = children
 
@@ -926,6 +951,7 @@ function createNode (compId, index,type, attrs, ...children){
 
 
     children =  flatten(children)
+    
     return {index, key:attrs?.key?attrs.key:0,  id:index, type, attrs, children}
 
     

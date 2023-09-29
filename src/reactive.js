@@ -1,5 +1,5 @@
 
-import {WatchEffect} from "./effect"
+import {WatchEffect} from "./effect.js"
 
 
 let addProp = (obj, prop, watcher, )=>{
